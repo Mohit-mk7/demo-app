@@ -1,0 +1,43 @@
+name: Deploy to EC2
+
+# Triggers the workflow on push events to the security-fixes branch
+on:
+  push:
+    branches:
+      - security-fixes
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT }} # Add this if you changed the default SSH port
+          script: |
+            # Navigate to the application directory
+            # Update this path if your app is located elsewhere
+            cd /home/mohit/lt-nilavan
+            
+            # Pull the latest changes from the repository
+            git pull origin security-fixes
+            
+            # Ensure Node 18+ is used (assuming NVM is loaded in .bashrc)
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm use 18
+            
+            # Install dependencies and build the Next.js app
+            npm install
+            npm run build
+            
+            # Restart the PM2 process (replace 'nilavan' with your actual PM2 process name)
+            pm2 restart nilavan
+            pm2 save

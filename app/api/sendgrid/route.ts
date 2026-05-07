@@ -1,10 +1,27 @@
 import { NextResponse } from 'next/server';
 import sendgrid from '@sendgrid/mail';
 
+// Security fix: sanitize user input to prevent HTML/link injection in emails
+// Added by: Security Assessment — Vuln 2 (HTML Injection)
+function sanitizeInput(input: string): string {
+  return String(input)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { name, email, phone, message } = body;
+
+    // Security fix: sanitize all user inputs before embedding in HTML email
+    const safeName    = sanitizeInput(name);
+    const safeEmail   = sanitizeInput(email);
+    const safePhone   = sanitizeInput(phone);
+    const safeMessage = sanitizeInput(message);
 
     const apiKey = process.env.SENDGRID_API_KEY;
     const toEmail = process.env.SENDGRID_TO_EMAIL;
@@ -23,9 +40,9 @@ export async function POST(req: Request) {
 
     const msg = {
       to: toEmail,
-      from: toEmail, // Must be a verified sender in SendGrid
+      from: toEmail,
       subject: 'New Contact Form Submission',
-      text: `Name: ${name}\nEmail: ${email}\nPhone: ${phone}\nMessage: ${message}`,
+      text: `Name: ${safeName}\nEmail: ${safeEmail}\nPhone: ${safePhone}\nMessage: ${safeMessage}`,
       html: `
         <html>
           <body style="background: #f6f6f7; padding: 40px 0;">
@@ -36,10 +53,10 @@ export async function POST(req: Request) {
               <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
               <div style="font-size: 16px; color: #222; margin-bottom: 24px;">
                 <p style="margin: 0 0 16px 0;">You have a new contact form submission:</p>
-                <p style="margin: 0 0 8px 0;"><strong>Name:</strong> ${name}</p>
-                <p style="margin: 0 0 8px 0;"><strong>Email:</strong> ${email}</p>
-                <p style="margin: 0 0 8px 0;"><strong>Phone:</strong> ${phone}</p>
-                <p style="margin: 0 0 8px 0;"><strong>Message:</strong> ${message}</p>
+                <p style="margin: 0 0 8px 0;"><strong>Name:</strong> ${safeName}</p>
+                <p style="margin: 0 0 8px 0;"><strong>Email:</strong> ${safeEmail}</p>
+                <p style="margin: 0 0 8px 0;"><strong>Phone:</strong> ${safePhone}</p>
+                <p style="margin: 0 0 8px 0;"><strong>Message:</strong> ${safeMessage}</p>
               </div>
             </div>
           </body>
@@ -59,4 +76,4 @@ export async function POST(req: Request) {
     
     return NextResponse.json({ error: 'Error sending email' }, { status: 500 });
   }
-} 
+}
